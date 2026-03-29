@@ -144,17 +144,64 @@ def post_assignment():
 
 @app.route('/get_assignment/<int:subject_id>', methods=['GET'])
 def get_assignment(subject_id):
-    assignment = Assignment.query.filter_by(subject_id=subject_id).all()
+    assignments = Assignment.query.filter_by(subject_id=subject_id).all()
 
     result = []
-    for a in assignment:
+    for a in assignments:
         result.append({
             "id":a.id,
             "title":a.title,
             "description":a.description,
             "subject_id":a.subject_id,
             "created_by":a.created_by,
-            "deadline":a.deadline
+            "deadline": a.deadline.strftime("%Y-%m-%d %H:%M:%S")
+        })
+
+    return result
+
+@app.route('/submit_assignment', methods=['POST'])
+def submit_assignment():
+    data = request.json
+
+    # 🔹 Validate assignment exists
+    assignment = Assignment.query.get(data['assignment_id'])
+    if not assignment:
+        return {"error": "Assignment not found"}, 404
+
+    # 🔹 Validate user exists
+    user = User.query.get(data['student_id'])
+    if not user:
+        return {"error": "User not found"}, 404
+
+    try:
+        submission = Submissions(
+            assignment_id=data['assignment_id'],
+            student_id=data['student_id'],
+            file_url=data['file_url'],
+            submitted_at=datetime.now()
+        )
+
+        db.session.add(submission)
+        db.session.commit()
+
+        return {"message": "Assignment submitted"}
+
+    except Exception as e:
+        db.session.rollback()
+        return {"error": "Already submitted or invalid data"}
+
+@app.route('/get_submissions/<int:assignment_id>', methods=['GET'])
+def get_submissions(assignment_id):
+    submissions = Submissions.query.filter_by(assignment_id=assignment_id).all()
+
+    result = []
+    for s in submissions:
+        result.append({
+            "id": s.id,
+            "assignment_id": s.assignment_id,
+            "student_id": s.student_id,
+            "file_url": s.file_url,
+            "submitted_at": s.submitted_at.strftime("%Y-%m-%d %H:%M:%S")
         })
 
     return result
