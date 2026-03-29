@@ -2,6 +2,7 @@ from flask import Flask
 from models import db
 from flask import request, jsonify
 from models import *
+from datetime import datetime
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
@@ -120,6 +121,40 @@ def get_replies(discussion_id):
             "id": r.id,
             "content": r.content,
             "user_id": r.user_id
+        })
+
+    return result
+
+@app.route('/create_assignment', methods=['POST'])
+def post_assignment():
+    data = request.json
+
+    assignment =  Assignment(
+        title = data['title'],
+        description = data['description'],
+        subject_id = data['subject_id'],
+        created_by = data['created_by'],
+        deadline = datetime.strptime(data['deadline'], "%Y-%m-%d %H:%M:%S")
+    )   
+
+    db.session.add(assignment)
+    db.session.commit()
+
+    return {"message":"assignment posted"}
+
+@app.route('/get_assignment/<int:subject_id>', methods=['GET'])
+def get_assignment(subject_id):
+    assignment = Assignment.query.filter_by(subject_id=subject_id).all()
+
+    result = []
+    for a in assignment:
+        result.append({
+            "id":a.id,
+            "title":a.title,
+            "description":a.description,
+            "subject_id":a.subject_id,
+            "created_by":a.created_by,
+            "deadline":a.deadline
         })
 
     return result
