@@ -52,4 +52,15 @@ class Assignment(db.Model):
     created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     deadline = db.Column(db.DateTime, nullable=False)
 
+class Submissions(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    assignment_id = db.Column(db.Integer, db.ForeignKey('assignment.id'), nullable=False)
+    student_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    file_url = db.Column(db.Text, nullable=False)
+    submitted_at = db.Column(db.DateTime, nullable=False)
+
+    __table_args__ = (
+        db.UniqueConstraint('assignment_id', 'student_id', name='unique_submission_per_student'),
+    )
+    
 
