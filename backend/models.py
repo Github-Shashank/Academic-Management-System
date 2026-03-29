@@ -43,3 +43,13 @@ class Reply(db.Model):
 
     discussion = db.relationship('Discussion')
     user = db.relationship('User')
+
+class Assignment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.Text, nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    subject_id = db.Column(db.Integer, db.ForeignKey('subject.id'), nullable=False)
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    deadline = db.Column(db.DateTime, nullable=False)
+
+
