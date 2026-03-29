@@ -1,11 +1,7 @@
 from flask import Flask
 from models import db
 from flask import request, jsonify
-from models import User
-from models import Subject
-from models import Lecture
-from models import Discussion
-from models import Reply
+from models import *
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
