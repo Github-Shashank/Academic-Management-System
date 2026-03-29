@@ -5,6 +5,7 @@ from models import User
 from models import Subject
 from models import Lecture
 from models import Discussion
+from models import Reply
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
@@ -94,6 +95,35 @@ def get_discussions(lecture_id):
             "id": d.id,
             "content": d.content,
             "user_id": d.user_id
+        })
+
+    return result
+
+@app.route('/post_reply', methods=['POST'])
+def post_reply():
+    data = request.json
+
+    reply = Reply(
+        content=data['content'],
+        discussion_id=data['discussion_id'],
+        user_id=data['user_id']
+    )
+
+    db.session.add(reply)
+    db.session.commit()
+
+    return {"message": "Reply added"}
+
+@app.route('/get_replies/<int:discussion_id>', methods=['GET'])
+def get_replies(discussion_id):
+    replies = Reply.query.filter_by(discussion_id=discussion_id).all()
+
+    result = []
+    for r in replies:
+        result.append({
+            "id": r.id,
+            "content": r.content,
+            "user_id": r.user_id
         })
 
     return result
