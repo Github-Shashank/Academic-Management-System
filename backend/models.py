@@ -33,3 +33,13 @@ class Discussion(db.Model):
     user = db.relationship('User')
     subject = db.relationship('Subject')
     lecture = db.relationship('Lecture')
+
+class Reply(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    content = db.Column(db.Text, nullable=False)
+
+    discussion_id = db.Column(db.Integer, db.ForeignKey('discussion.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+
+    discussion = db.relationship('Discussion')
+    user = db.relationship('User')
