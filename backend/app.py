@@ -1,3 +1,7 @@
+import os
+import uuid
+from werkzeug.utils import secure_filename
+from flask import send_from_directory
 from flask import Flask
 from models import db
 from flask import request, jsonify
@@ -6,6 +10,16 @@ from datetime import datetime
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
+UPLOAD_FOLDER = 'uploads'
+ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg' # } # txt is for testing only
+                      , 'txt'} # should be removed for final production
+
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+# create folder if not exists
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 db.init_app(app)
 
@@ -205,6 +219,43 @@ def get_submissions(assignment_id):
         })
 
     return result
+
+@app.route('/upload_file', methods=['POST'])
+def upload_file():
+    if 'file' not in request.files:
+        return {"error": "No file provided"}, 400
+
+    file = request.files['file']
+
+    if file.filename == '':
+        return {"error": "Empty filename"}, 400
+
+    if not allowed_file(file.filename):
+        return {"error": "File type not allowed"}, 400
+
+    # secure filename
+    filename = secure_filename(file.filename)
+
+    # add UUID to avoid overwrite
+    unique_filename = str(uuid.uuid4()) + "_" + filename
+
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+
+    file.save(filepath)
+
+    # return clean URL path
+    return {
+        "message": "File uploaded",
+        "file_url": f"uploads/{unique_filename}"
+    }
+
+@app.route('/files/<filename>')
+def get_file(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
+
+# @app.route('get_my_submissions/<int:student_id>', methods=['GETS'])
+# def get_my_submissions(student_id):
 
 if __name__ == '__main__':
     app.run(debug=True)
