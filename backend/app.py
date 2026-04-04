@@ -7,6 +7,7 @@ from models import db
 from flask import request, jsonify
 from models import *
 from datetime import datetime
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
@@ -30,13 +31,38 @@ with app.app_context():
 def home():
     return "Backend Running 🚀"
 
-@app.route('/add_user', methods=['POST'])
-def add_user():
+@app.route('/register', methods=['POST'])
+def register():
     data = request.json
-    user = User(name=data['name'], role=data['role'])
+
+    hashed_password = generate_password_hash(data['password'])
+
+    user = User(
+        name=data['name'],
+        role=data['role'],
+        password=hashed_password
+    )
+
     db.session.add(user)
     db.session.commit()
-    return jsonify({"message": "User added"})
+
+    return {"message": "User registered"}
+
+@app.route('/login', methods=['POST'])
+def login():
+    data = request.json
+
+    user = User.query.filter_by(name=data['name']).first()
+
+    if not user or not check_password_hash(user.password, data['password']):
+        return {"error": "Invalid credentials"}, 401
+
+    return {
+        "message": "Login successful",
+        "user_id": user.id,
+        "role": user.role
+    }
+
 
 @app.route('/add_subject', methods=['POST'])
 def add_subject():

@@ -4,6 +4,7 @@ db = SQLAlchemy()
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    password = db.Column(db.String(200), nullable = False)
     name = db.Column(db.String(100))
     role = db.Column(db.String(20))  # student/teacher/admin
 
