@@ -18,3 +18,20 @@ backend/uploads/
 # Misc
 *.txt
 *.pdf
+
+# Python
+__pycache__/
+*.pyc
+
+# Virtual environments
+venv/
+env/
+backend/venv/
+
+# Database
+*.db
+instance/
+
+# Uploads
+uploads/
+backend/uploads/
