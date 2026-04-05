@@ -1,15 +1,16 @@
 import os
 import uuid
+import jwt
+from functools import wraps
 from werkzeug.utils import secure_filename
 from flask import send_from_directory
-from flask import Flask
-from models import db
-from flask import request, jsonify
+from flask import request, jsonify, Flask
 from models import *
-from datetime import datetime
+from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
+app.config['SECRET_KEY'] = 'super_secret_key'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 UPLOAD_FOLDER = 'uploads'
 ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg' # } # txt is for testing only
@@ -57,12 +58,43 @@ def login():
     if not user or not check_password_hash(user.password, data['password']):
         return {"error": "Invalid credentials"}, 401
 
+    token = jwt.encode({
+        'user_id': user.id,
+        'role': user.role,
+        'exp': datetime.utcnow() + timedelta(hours=2)
+    }, app.config['SECRET_KEY'], algorithm='HS256')
+
     return {
         "message": "Login successful",
-        "user_id": user.id,
-        "role": user.role
+        "token": token
     }
 
+def token_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = None
+
+        # get token from header
+        if 'Authorization' in request.headers:
+            auth_header = request.headers.get('Authorization')
+
+            if not auth_header:
+                return {"error": "Token missing"}, 401
+
+            token = auth_header.split(" ")[1] if " " in auth_header else auth_header
+
+        if not token:
+            return {"error": "Token missing"}, 401
+
+        try:
+            data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
+            current_user = User.query.get(data['user_id'])
+        except:
+            return {"error": "Invalid token"}, 401
+
+        return f(current_user, *args, **kwargs)
+
+    return decorated
 
 @app.route('/add_subject', methods=['POST'])
 def add_subject():
@@ -200,7 +232,8 @@ def get_assignment(subject_id):
     return result
 
 @app.route('/submit_assignment', methods=['POST'])
-def submit_assignment():
+@token_required
+def submit_assignment(current_user):
     data = request.json
 
     # 🔹 Validate assignment exists
@@ -208,15 +241,13 @@ def submit_assignment():
     if not assignment:
         return {"error": "Assignment not found"}, 404
 
-    # 🔹 Validate user exists
-    user = User.query.get(data['student_id'])
-    if not user:
-        return {"error": "User not found"}, 404
+    if current_user.role != "student":
+        return {"error": "Only students can submit"}, 403
 
     try:
         submission = Submissions(
             assignment_id=data['assignment_id'],
-            student_id=data['student_id'],
+            student_id=current_user.id,
             file_url=data['file_url'],
             submitted_at=datetime.now()
         )
