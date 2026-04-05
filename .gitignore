@@ -1,4 +1,20 @@
-venv/
+# Python
 __pycache__/
 *.pyc
+
+# Virtual environment
+venv/
+env/
+backend/venv/
+
+# Database
+*.db
 instance/
+
+# Uploads
+uploads/
+backend/uploads/
+
+# Misc
+*.txt
+*.pdf
