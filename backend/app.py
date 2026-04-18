@@ -2,19 +2,17 @@ import os
 import uuid
 import jwt
 import time
-from functools import wraps
-from werkzeug.utils import secure_filename
 from flask import send_from_directory
 from flask import request, jsonify, Flask
 from models import *
 from datetime import datetime, timedelta
+from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 
-rate_limit_store = {}
+rate_limit_store = {}   # storage for In-memory rate limiter
 
-from functools import wraps
-
+# Decorator for rate limiter
 def rate_limit(max_requests, window_seconds):
     def decorator(f):
         @wraps(f)
@@ -57,16 +55,18 @@ def rate_limit(max_requests, window_seconds):
         return wrapped
     return decorator
 
-app = Flask(__name__)
-app.config['SECRET_KEY'] = 'super_secret_key'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
-app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024  # 5MB
-
+# Defined file extension and folders
 UPLOAD_FOLDER = 'uploads'
 ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg' # } # txt is for testing only
                       , 'txt'} # should be removed for final production
 
+# Initialising app and some values
+app = Flask(__name__)
+app.config['SECRET_KEY'] = 'super_secret_key'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
+app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024  # 5MB
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
 # create folder if not exists
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
@@ -370,9 +370,6 @@ def upload_file():
 def get_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
-
-# @app.route('get_my_submissions/<int:student_id>', methods=['GETS'])
-# def get_my_submissions(student_id):
-
+# Runs the app 
 if __name__ == '__main__':
     app.run(debug=True)
