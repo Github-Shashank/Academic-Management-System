@@ -18,3 +18,4 @@ backend/uploads/
 # Misc
 *.txt
 *.pdf
+*.db
