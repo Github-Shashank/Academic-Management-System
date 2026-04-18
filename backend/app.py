@@ -1,6 +1,7 @@
 import os
 import uuid
 import jwt
+import time
 from functools import wraps
 from werkzeug.utils import secure_filename
 from flask import send_from_directory
@@ -8,6 +9,50 @@ from flask import request, jsonify, Flask
 from models import *
 from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
+from functools import wraps
+
+rate_limit_store = {}
+
+from functools import wraps
+
+def rate_limit(max_requests, window_seconds):
+    def decorator(f):
+        @wraps(f)
+        def wrapped(*args, **kwargs):
+            user_id = None
+
+            # try getting user from JWT
+            if 'Authorization' in request.headers:
+                token = request.headers['Authorization']
+                try:
+                    data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
+                    user_id = data['user_id']
+                except:
+                    user_id = request.remote_addr
+            else:
+                user_id = request.remote_addr
+
+            key = f"{user_id}:{f.__name__}"
+            current_time = time.time()
+
+            if key not in rate_limit_store:
+                rate_limit_store[key] = []
+
+            # remove old requests
+            rate_limit_store[key] = [
+                t for t in rate_limit_store[key]
+                if current_time - t < window_seconds
+            ]
+
+            if len(rate_limit_store[key]) >= max_requests:
+                return {"error": "Too many requests"}, 429
+
+            rate_limit_store[key].append(current_time)
+
+            return f(*args, **kwargs)
+
+        return wrapped
+    return decorator
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'super_secret_key'
@@ -50,6 +95,7 @@ def register():
     return {"message": "User registered"}
 
 @app.route('/login', methods=['POST'])
+@rate_limit(5, 60) 
 def login():
     data = request.json
 
@@ -233,6 +279,7 @@ def get_assignment(subject_id):
 
 @app.route('/submit_assignment', methods=['POST'])
 @token_required
+@rate_limit(3, 60)
 def submit_assignment(current_user):
     data = request.json
 
@@ -278,6 +325,7 @@ def get_submissions(assignment_id):
     return result
 
 @app.route('/upload_file', methods=['POST'])
+@rate_limit(3, 60)
 def upload_file():
     if 'file' not in request.files:
         return {"error": "No file provided"}, 400
