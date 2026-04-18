@@ -45,7 +45,10 @@ def rate_limit(max_requests, window_seconds):
             ]
 
             if len(rate_limit_store[key]) >= max_requests:
-                return {"error": "Too many requests"}, 429
+                return {
+                    "error": "Too many requests",
+                    "retry_after_seconds": window_seconds
+                }, 429
 
             rate_limit_store[key].append(current_time)
 
@@ -57,6 +60,8 @@ def rate_limit(max_requests, window_seconds):
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'super_secret_key'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
+app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024  # 5MB
+
 UPLOAD_FOLDER = 'uploads'
 ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg' # } # txt is for testing only
                       , 'txt'} # should be removed for final production
@@ -127,7 +132,12 @@ def token_required(f):
             if not auth_header:
                 return {"error": "Token missing"}, 401
 
-            token = auth_header.split(" ")[1] if " " in auth_header else auth_header
+            parts = auth_header.split()
+
+            if len(parts) == 2 and parts[0] == "Bearer":
+                token = parts[1]
+            else:
+                return {"error": "Invalid token format"}, 401
 
         if not token:
             return {"error": "Token missing"}, 401
@@ -135,7 +145,9 @@ def token_required(f):
         try:
             data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
             current_user = User.query.get(data['user_id'])
-        except:
+        except jwt.ExpiredSignatureError:
+            return {"error": "Token expired"}, 401
+        except jwt.InvalidTokenError:
             return {"error": "Invalid token"}, 401
 
         return f(current_user, *args, **kwargs)
@@ -185,12 +197,12 @@ def get_lectures(subject_id):
     return result
 
 @app.route('/post_discussion', methods=['POST'])
-def post_discussion():
+def post_discussion(current_user):
     data = request.json
 
     discussion = Discussion(
         content=data['content'],
-        user_id=data['user_id'],
+        user_id=current_user.id,
         subject_id=data['subject_id'],
         lecture_id=data['lecture_id']
     )
@@ -215,13 +227,13 @@ def get_discussions(lecture_id):
     return result
 
 @app.route('/post_reply', methods=['POST'])
-def post_reply():
+def post_reply(current_user):
     data = request.json
 
     reply = Reply(
         content=data['content'],
         discussion_id=data['discussion_id'],
-        user_id=data['user_id']
+        user_id=current_user.id
     )
 
     db.session.add(reply)
@@ -244,14 +256,14 @@ def get_replies(discussion_id):
     return result
 
 @app.route('/create_assignment', methods=['POST'])
-def post_assignment():
+def post_assignment(current_user):
     data = request.json
 
     assignment =  Assignment(
         title = data['title'],
         description = data['description'],
         subject_id = data['subject_id'],
-        created_by = data['created_by'],
+        created_by = current_user.id,
         deadline = datetime.strptime(data['deadline'], "%Y-%m-%d %H:%M:%S")
     )   
 
